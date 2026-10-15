@@ -1,0 +1,6 @@
+name: astrbot_plugin_github_trending
+display_name: GitHub 日榜与 AI 摘要
+desc: 获取 GitHub 每日 Trending并生成项目 README 中文摘要
+version: v1.0.1
+author: renmu
+astrbot_version: ">=4.5.7"

@@ -1,0 +1,85 @@
+{
+  "provider_id": {
+    "description": "README 摘要模型",
+    "type": "string",
+    "default": "",
+    "_special": "select_provider",
+    "hint": "选择 AstrBot 已配置的聊天模型；留空使用发起命令的会话模型。"
+  },
+  "default_count": {
+    "description": "默认项目数量",
+    "type": "int",
+    "default": 5,
+    "slider": {"min": 1, "max": 25, "step": 1}
+  },
+  "default_language": {
+    "description": "默认编程语言",
+    "type": "string",
+    "default": "",
+    "hint": "留空获取全部语言；例如 python、typescript、c++。命令传入 all 可获取全部语言。"
+  },
+  "github_token": {
+    "description": "GitHub Token（可选）",
+    "type": "string",
+    "default": "",
+    "secret": true,
+    "hint": "仅用于 GitHub 官方 README API，提高请求额度。公开仓库无需 Token；细粒度 Token 需允许目标仓库 Contents 读取权限。"
+  },
+  "cache_minutes": {
+    "description": "榜单、README 与摘要缓存分钟数",
+    "type": "int",
+    "default": 60,
+    "slider": {"min": 0, "max": 1440, "step": 1},
+    "hint": "0 禁用缓存。内存缓存最多 256 项，重载插件后清空。不同模型的摘要分别缓存。"
+  },
+  "readme_max_chars": {
+    "description": "发送给 AI 的 README 最大字符数",
+    "type": "int",
+    "default": 12000,
+    "slider": {"min": 1000, "max": 50000, "step": 1000},
+    "hint": "超长 README 取开头部分，并在输出注明基于节选。"
+  },
+  "summary_max_chars": {
+    "description": "每个项目摘要最大字符数",
+    "type": "int",
+    "default": 300,
+    "slider": {"min": 100, "max": 800, "step": 50}
+  },
+  "request_timeout": {
+    "description": "GitHub 单次网络操作超时（秒）",
+    "type": "int",
+    "default": 30,
+    "slider": {"min": 5, "max": 120, "step": 5}
+  },
+  "ai_timeout": {
+    "description": "单个项目 AI 摘要超时（秒）",
+    "type": "int",
+    "default": 90,
+    "slider": {"min": 10, "max": 300, "step": 10}
+  },
+  "admin_only": {
+    "description": "仅管理员可获取日榜",
+    "type": "bool",
+    "default": false,
+    "hint": "开启后仅管理员能触发网络请求及 AI 摘要。"
+  },
+  "network_proxy": {
+    "description": "GitHub 网络与代理",
+    "type": "object",
+    "items": {
+      "proxy_mode": {
+        "description": "代理模式",
+        "type": "string",
+        "default": "system",
+        "options": ["system", "custom", "none"],
+        "hint": "system 使用 HTTP_PROXY/HTTPS_PROXY 等环境代理；custom 使用下方地址；none 禁用环境代理。AI 的代理由 AstrBot 模型服务商配置决定。"
+      },
+      "proxy_url": {
+        "description": "自定义代理地址",
+        "type": "string",
+        "default": "",
+        "hint": "例如 http://127.0.0.1:7890 或 socks5://127.0.0.1:7890。"
+      }
+    }
+  }
+}
