@@ -19,6 +19,18 @@ AstrBot 插件：从 GitHub 官网获取 `since=daily` Trending，读取每个�
 
 这里的 daily 是 **GitHub 当前日榜**，并非指定自然日的历史数据或插件自行计算的 Star 增量。插件通过命令触发获取。
 
+## AI 工具调用
+
+通过 `@filter.llm_tool(name="github_daily_trending")` 注册，重载插件后可在 AstrBot 的工具管理中查看并启用。当前聊天模型需要支持工具调用，且当前会话允许使用本插件工具。
+
+可以直接对 AI 说：“看看今天 GitHub 上最热门的 3 个 Python 项目，并概括用途。”
+
+- `language`：字符串，如 `python`、`typescript`、`c++`；`all` 表示全部语言，省略或空字符串使用配置中的默认语言。
+- `count`：1–25 的整数；省略或 0 使用配置中的默认数量。
+- 工具返回榜单、仓库链接、Star、简介和 README 资料，由发起调用的对话模型生成最终摘要。工具内部不额外调用摘要模型，不向聊天重复发送命令式进度消息；`provider_id` 和 `ai_timeout` 仍控制命令入口的独立摘要请求。
+- 每份 README 最多返回 3000 字符，全部 README 资料合计最多 12000 字符，同时遵守 `readme_max_chars`。截断时明确标注节选；读取失败时保留项目官网信息。
+- 与命令共用管理员限制、请求锁、缓存、代理和 API 受限回退。工具调用的整体超时由 AstrBot 的 Agent 配置控制。
+
 ## 配置
 
 在 WebUI 的插件配置中修改，保存后重载插件：

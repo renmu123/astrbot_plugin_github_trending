@@ -387,7 +387,10 @@ def load_main_with_stubs():
     api.logger = logging.getLogger("astrbot-test")
     event_module = types.ModuleType("astrbot.api.event")
     event_module.AstrMessageEvent = object
-    event_module.filter = types.SimpleNamespace(command=lambda *a, **kw: lambda fn: fn)
+    event_module.filter = types.SimpleNamespace(
+        command=lambda *a, **kw: lambda fn: fn,
+        llm_tool=lambda *a, **kw: lambda fn: fn,
+    )
     star = types.ModuleType("astrbot.api.star")
 
     class Star:
@@ -435,6 +438,81 @@ class HandlerTests(unittest.IsolatedAsyncioTestCase):
         self.context.get_current_chat_provider_id.assert_awaited_once_with(
             umo=self.event.unified_msg_origin
         )
+        self.assertFalse(self.plugin.lock.locked())
+
+    async def test_tool_returns_readme_without_nested_ai_or_messages(self):
+        self.event.plain_result = types.SimpleNamespace()  # Calling this would fail.
+        result = await self.plugin.daily_tool(self.event, "python", 2)
+        self.assertIsInstance(result, str)
+        self.assertIn("a/one", result)
+        self.assertIn("README 不可用", result)
+        self.assertIn("a/two", result)
+        self.assertIn("README 资料（全文）：\nREADME", result)
+        self.assertNotIn("请稍候", result)
+        self.plugin.client.trending.assert_awaited_once_with("python")
+        self.context.llm_generate.assert_not_awaited()
+        self.context.get_current_chat_provider_id.assert_not_awaited()
+        self.assertFalse(self.plugin.lock.locked())
+
+    async def test_tool_uses_configured_defaults_and_accepts_integral_number(self):
+        self.plugin.config.update(default_language="python", default_count=1)
+        self.plugin.client.readme.side_effect = None
+        self.plugin.client.readme.return_value = "Repository README"
+        result = await self.plugin.daily_tool(self.event)
+        self.assertIn("a/one", result)
+        self.assertNotIn("a/two", result)
+        self.plugin.client.trending.assert_awaited_once_with("python")
+        result = await self.plugin.daily_tool(self.event, "all", 2.0)
+        self.assertIn("全部语言", result)
+        self.assertIn("a/two", result)
+        self.plugin.client.trending.assert_awaited_with("")
+
+    async def test_tool_invalid_parameters_do_not_fetch(self):
+        for count in [True, 1.5, -1, 26, "3", None, float("inf"), float("nan")]:
+            with self.subTest(count=count):
+                self.assertIn(
+                    "数量必须",
+                    await self.plugin.daily_tool(self.event, "python", count),
+                )
+        self.assertIn("语言名称", await self.plugin.daily_tool(self.event, None, 1))
+        self.plugin.client.trending.assert_not_awaited()
+        self.plugin.client.readme.assert_not_awaited()
+
+    async def test_tool_permission_busy_and_shutdown_share_command_guards(self):
+        self.plugin.config["admin_only"] = True
+        self.assertIn("仅管理员", await self.plugin.daily_tool(self.event))
+        self.plugin.config["admin_only"] = False
+        async with self.plugin.lock:
+            self.assertIn("另一条", await self.plugin.daily_tool(self.event))
+        await self.plugin.terminate()
+        self.assertIn("正在停止", await self.plugin.daily_tool(self.event))
+        self.plugin.client.trending.assert_not_awaited()
+        self.context.llm_generate.assert_not_awaited()
+
+    async def test_tool_limits_combined_readme_material(self):
+        self.plugin.client.trending.return_value = [
+            Repository(f"owner/repo{i}") for i in range(25)
+        ]
+        self.plugin.client.readme.side_effect = None
+        self.plugin.client.readme.return_value = "x" * 20000
+        result = await self.plugin.daily_tool(self.event, "all", 25)
+        self.assertEqual(result.count("x"), 12000)
+        self.assertEqual(result.count("节选，已截断"), 25)
+        self.assertLess(len(result), 18000)
+        self.context.llm_generate.assert_not_awaited()
+
+    async def test_terminate_cancels_inflight_tool(self):
+        started = asyncio.Event()
+
+        async def slow(language):
+            started.set()
+            await asyncio.sleep(60)
+
+        self.plugin.client.trending.side_effect = slow
+        task = asyncio.create_task(self.plugin.daily_tool(self.event))
+        await started.wait()
+        await self.plugin.terminate()
+        self.assertTrue(task.cancelled())
         self.assertFalse(self.plugin.lock.locked())
 
     async def test_provider_unavailable_still_returns_ranking(self):

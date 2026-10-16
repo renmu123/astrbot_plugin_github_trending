@@ -61,7 +61,7 @@
     "description": "仅管理员可获取日榜",
     "type": "bool",
     "default": false,
-    "hint": "开启后仅管理员能触发网络请求及 AI 摘要。"
+    "hint": "命令和 AI 工具均遵守此设置；开启后仅管理员能触发网络请求及 AI 摘要。"
   },
   "network_proxy": {
     "description": "GitHub 网络与代理",

@@ -302,18 +302,30 @@ class TrendingService:
         self.cache.put(key, result)
         return result
 
+    async def readme_data(self, repo: Repository) -> tuple[str, str, bool]:
+        data = self.cache.get(("readme", repo.name))
+        if data is None:
+            readme = await self.client.readme(repo)
+            data = (
+                readme[: self.readme_chars],
+                hashlib.sha256(readme.encode()).hexdigest(),
+                len(readme) > self.readme_chars,
+            )
+            self.cache.put(("readme", repo.name), data)
+        return data
+
+    async def readme_for_tool(self, repo: Repository, max_chars: int) -> str:
+        try:
+            excerpt, _digest, truncated = await self.readme_data(repo)
+            truncated = truncated or len(excerpt) > max_chars
+            label = "节选，已截断" if truncated else "全文"
+            return f"README 资料（{label}）：\n{excerpt[:max_chars]}"
+        except TrendingError as exc:
+            return f"README 不可用：{exc}"
+
     async def summarize(self, repo: Repository, context: Any, provider_id: str) -> str:
         try:
-            readme_data = self.cache.get(("readme", repo.name))
-            if readme_data is None:
-                readme = await self.client.readme(repo)
-                readme_data = (
-                    readme[: self.readme_chars],
-                    hashlib.sha256(readme.encode()).hexdigest(),
-                    len(readme) > self.readme_chars,
-                )
-                self.cache.put(("readme", repo.name), readme_data)
-            excerpt, digest, truncated = readme_data
+            excerpt, digest, truncated = await self.readme_data(repo)
             key = (
                 "summary-v1",
                 repo.name,
